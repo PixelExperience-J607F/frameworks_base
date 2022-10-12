@@ -38,10 +38,15 @@ public class PixelPropsUtils {
     private static final String SAMSUNG = "com.samsung.android.";
 
     private static final Map<String, Object> propsToChange;
+    private static final Map<String, Object> propsToChangeMiPad;
     private static final Map<String, Object> propsToChangePixel5;
     private static final Map<String, Object> propsToChangePixel7Pro;
     private static final Map<String, Object> propsToChangePixelXL;
     private static final Map<String, ArrayList<String>> propsToKeep;
+
+    private static final String[] packagesToChangeMiPad = {
+            "com.tencent.mm"
+    };
 
     private static final String[] packagesToChangePixel7Pro = {
             "com.google.android.apps.wallpaper",
@@ -124,6 +129,12 @@ public class PixelPropsUtils {
         propsToChangePixelXL.put("PRODUCT", "marlin");
         propsToChangePixelXL.put("MODEL", "Pixel XL");
         propsToChangePixelXL.put("FINGERPRINT", "google/marlin/marlin:10/QP1A.191005.007.A3/5972272:user/release-keys");
+        propsToChangeMiPad = new HashMap<>();
+        propsToChangeMiPad.put("BRAND", "Xiaomi");
+        propsToChangeMiPad.put("MANUFACTURER", "Xiaomi");
+        propsToChangeMiPad.put("DEVICE", "nabu");
+        propsToChangeMiPad.put("PRODUCT", "nabu");
+        propsToChangeMiPad.put("MODEL", "21051182C");
     }
 
     public static void setProps(String packageName) {
@@ -179,6 +190,15 @@ public class PixelPropsUtils {
             // Set proper indexing fingerprint
             if (packageName.equals("com.google.android.settings.intelligence")) {
                 setPropValue("FINGERPRINT", Build.VERSION.INCREMENTAL);
+            }
+        }
+        if ((Arrays.asList(
+                SystemProperties.get("ro.build.characteristics", "")
+            ).contains("tablet")) &&
+            (Arrays.asList(packagesToChangeMiPad).contains(packageName))) {
+            if (DEBUG) Log.d(TAG, "Defining props for: " + packageName);
+            for (Map.Entry<String, Object> prop : propsToChangeMiPad.entrySet()) {
+                setPropValue(prop.getKey(), prop.getValue());
             }
         }
     }
