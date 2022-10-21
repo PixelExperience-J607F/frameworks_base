@@ -38,6 +38,7 @@ public class PixelPropsUtils {
     private static final String SAMSUNG = "com.samsung.android.";
 
     private static final Map<String, Object> propsToChange;
+    private static final Map<String, Object> propsToChangeMeizu;
     private static final Map<String, Object> propsToChangeMiPad;
     private static final Map<String, Object> propsToChangePixel5;
     private static final Map<String, Object> propsToChangePixel7Pro;
@@ -46,6 +47,15 @@ public class PixelPropsUtils {
 
     private static final String[] packagesToChangeMiPad = {
             "com.tencent.mm"
+    };
+
+    private static final String[] meizuPropToChange = {
+            "com.netease.cloudmusic",
+            "com.tencent.qqmusic",
+	        "com.kugou.android",
+	        "cmccwm.mobilemusic",
+            "cn.kuwo.player",
+            "com.meizu.media.music"
     };
 
     private static final String[] packagesToChangePixel7Pro = {
@@ -135,6 +145,13 @@ public class PixelPropsUtils {
         propsToChangeMiPad.put("DEVICE", "nabu");
         propsToChangeMiPad.put("PRODUCT", "nabu");
         propsToChangeMiPad.put("MODEL", "21051182C");
+        propsToChangeMeizu = new HashMap<>();
+	    propsToChangeMeizu.put("BRAND", "meizu");
+	    propsToChangeMeizu.put("MANUFACTURER", "meizu");
+	    propsToChangeMeizu.put("DEVICE", "meizu18");
+	    propsToChangeMeizu.put("PRODUCT", "meizu_18_CN");
+	    propsToChangeMeizu.put("MODEL", "MEIZU 18");
+	    propsToChangeMeizu.put("FINGERPRINT", "meizu/meizu_18_CN/meizu18:11/RKQ1.201105.002/1607588916:user/release-keys");
     }
 
     public static void setProps(String packageName) {
@@ -201,6 +218,16 @@ public class PixelPropsUtils {
                 setPropValue(prop.getKey(), prop.getValue());
             }
         }
+        // Set Props for StatusBar Lyric
+    	if (Arrays.asList(meizuPropToChange).contains(packageName)) {
+	        if (DEBUG) Log.d(TAG, "Defining props for: " + packageName);
+	        for (Map.Entry<String, Object> prop : propsToChangeMeizu.entrySet()) {
+    		String key = prop.getKey();
+	    	Object value = prop.getValue();
+    		if (DEBUG) Log.d(TAG, "Defining " + key + " prop for: " + packageName);
+    		setPropValue(key, value);
+	        }
+	    }
     }
 
     private static void setPropValue(String key, Object value) {
