@@ -26,8 +26,6 @@ import static android.view.InsetsState.containsType;
 import static android.view.WindowInsetsController.APPEARANCE_LOW_PROFILE_BARS;
 import static android.view.WindowInsetsController.APPEARANCE_OPAQUE_STATUS_BARS;
 import static android.view.WindowInsetsController.APPEARANCE_SEMI_TRANSPARENT_STATUS_BARS;
-import static android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_3BUTTON_OVERLAY;
-import static android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_GESTURAL_OVERLAY;
 
 import static androidx.core.view.ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_AUTO;
 import static androidx.core.view.ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;
@@ -66,7 +64,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.om.IOverlayManager;
 import android.content.pm.IPackageManager;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -240,7 +237,6 @@ import com.android.systemui.statusbar.policy.UserSwitcherController;
 import com.android.systemui.statusbar.window.StatusBarWindowController;
 import com.android.systemui.statusbar.window.StatusBarWindowStateController;
 import com.android.systemui.surfaceeffects.ripple.RippleShader.RippleShape;
-import com.android.systemui.tuner.TunerService;
 import com.android.systemui.util.DumpUtilsKt;
 import com.android.systemui.util.WallpaperController;
 import com.android.systemui.util.concurrency.DelayableExecutor;
@@ -249,8 +245,6 @@ import com.android.systemui.volume.VolumeComponent;
 import com.android.wm.shell.bubbles.Bubbles;
 import com.android.wm.shell.startingsurface.SplashscreenContentDrawer;
 import com.android.wm.shell.startingsurface.StartingSurface;
-
-import com.android.internal.util.custom.NavbarUtils;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -278,10 +272,7 @@ import dagger.Lazy;
  * </b>
  */
 @SysUISingleton
-public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, TunerService.Tunable {
-
-    private static final String NAVIGATION_BAR_SHOW =
-            "customsystem:" + Settings.System.NAVIGATION_BAR_SHOW;
+public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
 
     private static final String BANNER_ACTION_CANCEL =
             "com.android.systemui.statusbar.banner_action_cancel";
@@ -505,7 +496,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
     private final StatusBarSignalPolicy mStatusBarSignalPolicy;
     private final StatusBarHideIconsForBouncerManager mStatusBarHideIconsForBouncerManager;
     private final Lazy<LightRevealScrimViewModel> mLightRevealScrimViewModelLazy;
-    private final TunerService mTunerService;
 
     /** Controller for the Shade. */
     @VisibleForTesting
@@ -642,7 +632,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
     private final LifecycleRegistry mLifecycle = new LifecycleRegistry(this);
     protected final BatteryController mBatteryController;
     protected boolean mPanelExpanded;
-    private IOverlayManager mOverlayManager;
     private UiModeManager mUiModeManager;
     private LogMaker mStatusBarStateLog;
     protected final NotificationIconAreaController mNotificationIconAreaController;
@@ -774,8 +763,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
             WiredChargingRippleController wiredChargingRippleController,
             IDreamManager dreamManager,
             Lazy<CameraLauncher> cameraLauncherLazy,
-            Lazy<LightRevealScrimViewModel> lightRevealScrimViewModelLazy,
-            TunerService tunerService) {
+            Lazy<LightRevealScrimViewModel> lightRevealScrimViewModelLazy) {
         mContext = context;
         mNotificationsController = notificationsController;
         mFragmentService = fragmentService;
@@ -897,8 +885,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
     public void start() {
         mScreenLifecycle.addObserver(mScreenObserver);
         mWakefulnessLifecycle.addObserver(mWakefulnessObserver);
-        mOverlayManager = IOverlayManager.Stub.asInterface(
-                ServiceManager.getService(Context.OVERLAY_SERVICE));
         mUiModeManager = mContext.getSystemService(UiModeManager.class);
         if (mBubblesOptional.isPresent()) {
             mBubblesOptional.get().setExpandListener(mBubbleExpandListener);
@@ -914,9 +900,8 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
 
         mColorExtractor.addOnColorsChangedListener(mOnColorsChangedListener);
 
-        mTunerService.addTunable(this, NAVIGATION_BAR_SHOW);
-
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
+
         mDisplay = mContext.getDisplay();
         mDisplayId = mDisplay.getDisplayId();
         updateDisplaySize();
@@ -945,8 +930,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
         } catch (RemoteException ex) {
             ex.rethrowFromSystemServer();
         }
-
-        initCoreOverlays();
 
         createAndAddWindows(result);
 
@@ -1187,13 +1170,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
             // expanded. To prevent that we can close QS which resets QS and some parts of
             // the shade to its default state. Read more in b/201537421
             mCloseQsBeforeScreenOff = true;
-        }
-    }
-
-    private void initCoreOverlays(){
-        boolean navbarEnabled = NavbarUtils.isEnabled(mContext);
-        if (!navbarEnabled) {
-            setNavBarInteractionMode(NAV_BAR_MODE_3BUTTON_OVERLAY);
         }
     }
 
@@ -1494,7 +1470,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
-        filter.addAction(Intent.ACTION_SCREEN_CAMERA_GESTURE);
         mBroadcastDispatcher.registerReceiver(mBroadcastReceiver, filter, null, UserHandle.ALL);
     }
 
@@ -2586,21 +2561,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
                 }
                 finishBarAnimations();
                 resetUserExpandedStates();
-            }
-            else if (Intent.ACTION_SCREEN_CAMERA_GESTURE.equals(action)) {
-                boolean userSetupComplete = Settings.Secure.getInt(mContext.getContentResolver(),
-                        Settings.Secure.USER_SETUP_COMPLETE, 0) != 0;
-                if (!userSetupComplete) {
-                    if (DEBUG) Log.d(TAG, String.format(
-                            "userSetupComplete = %s, ignoring camera launch gesture.",
-                            userSetupComplete));
-                    return;
-                }
-
-                // This gets executed before we will show Keyguard, so post it in order that the
-                // state is correct.
-                mMainExecutor.execute(() -> mCommandQueueCallbacks.onCameraLaunchGestureDetected(
-                        StatusBarManager.CAMERA_LAUNCH_SOURCE_SCREEN_GESTURE));
             }
             Trace.endSection();
         }
@@ -4106,46 +4066,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces, Tune
     @Override
     public boolean isKeyguardSecure() {
         return mStatusBarKeyguardViewManager.isSecure();
-    }
-
-    private void setNavBarInteractionMode(String overlayPackage) {
-        try {
-            mOverlayManager.setEnabledExclusiveInCategory(overlayPackage, UserHandle.USER_CURRENT);
-        } catch (Exception e) {
-        }
-    }
-
-    private void saveNavBarCurrentModeOverlay() {
-        String navigationBarModeOverlay = NavbarUtils.getNavigationBarModeOverlay(mContext, mOverlayManager);
-        Settings.System.putString(mContext.getContentResolver(),
-                Settings.System.NAVIGATION_BAR_MODE_OVERLAY, navigationBarModeOverlay);
-    }
-
-    private String getOldNavBarModeOverlay() {
-        String navigationBarModeOverlay = Settings.System.getStringForUser(mContext.getContentResolver(),
-                Settings.System.NAVIGATION_BAR_MODE_OVERLAY, UserHandle.USER_CURRENT);
-        if (TextUtils.isEmpty(navigationBarModeOverlay)){
-            navigationBarModeOverlay = NAV_BAR_MODE_GESTURAL_OVERLAY;
-        }
-        return navigationBarModeOverlay;
-    }
-
-    @Override
-    public void onTuningChanged(String key, String newValue) {
-        if (NAVIGATION_BAR_SHOW.equals(key) && mDisplayId == Display.DEFAULT_DISPLAY &&
-                mWindowManagerService != null) {
-            boolean navbarEnabled = NavbarUtils.isEnabled(mContext);
-            boolean hasNavbar = getNavigationBarView() != null;
-            if (navbarEnabled) {
-                if (!hasNavbar) {
-                    mNavigationBarController.onDisplayReady(mDisplayId);
-                }
-            } else {
-                if (hasNavbar) {
-                    mNavigationBarController.onDisplayRemoved(mDisplayId);
-                }
-            }
-        }
     }
 
     // End Extra BaseStatusBarMethods.

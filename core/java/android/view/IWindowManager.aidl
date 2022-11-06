@@ -961,9 +961,4 @@ interface IWindowManager
      * treatment.
      */
     boolean isLetterboxBackgroundMultiColored();
-
-    /**
-     * Notifies DisplayPolicy that overlays changed.
-     */
-    void onOverlayChanged();
 }
