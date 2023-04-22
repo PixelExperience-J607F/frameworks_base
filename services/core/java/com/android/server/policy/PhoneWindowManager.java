@@ -536,7 +536,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     private ActivityTaskManagerInternal.SleepTokenAcquirer mScreenOffSleepTokenAcquirer;
     Intent mHomeIntent;
-    boolean mAssistPressed;
     Intent mCarDockIntent;
     Intent mDeskDockIntent;
     Intent mVrHeadsetHomeIntent;
@@ -2928,38 +2927,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 }
                 break;
             case KeyEvent.KEYCODE_ASSIST:
-                if (keyguardOn) {
-                    break;
-                }
-                if (down) {
-                    if (mAssistPressAction == Action.APP_SWITCH
-                            || mAssistLongPressAction == Action.APP_SWITCH) {
-                        preloadRecentApps();
-                    }
-                    if (repeatCount == 0) {
-                        mAssistPressed = true;
-                    } else if (longPress) {
-                        if (mAssistLongPressAction != Action.NOTHING) {
-                            if (mAssistLongPressAction != Action.APP_SWITCH) {
-                                cancelPreloadRecentApps();
-                            }
-                            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, false,
-                                    "Assist - Long Press");
-                            performKeyAction(mAssistLongPressAction, event);
-                            mAssistPressed = false;
-                        }
-                    }
-                } else {
-                    if (mAssistPressed) {
-                        if (mAssistPressAction != Action.APP_SWITCH) {
-                            cancelPreloadRecentApps();
-                        }
-                        mAssistPressed = false;
-                        if (!canceled) {
-                            performKeyAction(mAssistPressAction, event);
-                        }
-                    }
-                }
+                Slog.wtf(TAG, "KEYCODE_ASSIST should be handled in interceptKeyBeforeQueueing");
                 return key_consumed;
             case KeyEvent.KEYCODE_VOICE_ASSIST:
                 Slog.wtf(TAG, "KEYCODE_VOICE_ASSIST should be handled in"
@@ -4168,12 +4136,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 break;
             }
             case KeyEvent.KEYCODE_ASSIST: {
-                if (down && !interactive) {
-                    isWakeKey = mWakeOnAssistKeyPress;
-                    if (!isWakeKey) {
-                        useHapticFeedback = false;
-                    }
+                final boolean longPressed = event.getRepeatCount() > 0;
+                if (down && !longPressed) {
+                    Message msg = mHandler.obtainMessage(MSG_LAUNCH_ASSIST, event.getDeviceId(),
+                            0 /* unused */, event.getEventTime() /* eventTime */);
+                    msg.setAsynchronous(true);
+                    msg.sendToTarget();
                 }
+                result &= ~ACTION_PASS_TO_USER;
                 break;
             }
             case KeyEvent.KEYCODE_VOICE_ASSIST: {
